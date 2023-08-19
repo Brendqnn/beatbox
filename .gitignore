@@ -1,4 +1,4 @@
 *.o
 *.mp3
-/res
-/bin
+res
+bin
