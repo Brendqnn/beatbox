@@ -1,7 +1,7 @@
 # Prerequisites
 *.d
 /res
-/bin
+/bin/*
 
 # Object files
 *.o
