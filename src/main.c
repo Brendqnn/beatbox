@@ -7,7 +7,7 @@
 
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 
-uint64_t global_frames[4080] = {0};
+uint64_t global_frames[1024] = {0};
 size_t global_frames_count = 0;
 
 void callback(void *buffer_data, unsigned int frames)
@@ -20,11 +20,11 @@ void callback(void *buffer_data, unsigned int frames)
 }
 
 int main(void) {
-    InitWindow(800, 600, "BeatBox");
+    InitWindow(1200, 800, "BeatBox");
     SetTargetFPS(60);
     
     InitAudioDevice();
-    Music sound = LoadMusicStream("res/crash.mp3");
+    Music sound = LoadMusicStream("res/out of this world.mp3");
     assert(sound.stream.sampleSize == 32);
     assert(sound.stream.channels == 2);
         
@@ -52,15 +52,14 @@ int main(void) {
         float cell_width = (float)w/global_frames_count;
         for (size_t i = 0; i < global_frames_count; ++i) {
             int32_t sample = *(int32_t*)&global_frames[i];
-                float t = (float)sample / INT32_MAX; // Scale to [0, 1] for positive values
+            float t = (float)sample / INT32_MAX; // Scale to [0, 1] for positive values
             if (sample < 0) {
                 t = (float)sample / INT32_MIN;   // Scale to [0, 1] for negative values 
             } 
             float y = h/2 - h/2 * t;
             DrawRectangle(i * cell_width, y, cell_width, h / 2 * t, RED);
         }
-        
-        
+                
         EndDrawing();
     }
     
