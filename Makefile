@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Icglm/include -g
+CFLAGS = -Wall -g
 LDFLAGS = -lraylib -lGL -lm -lpthread -ldl
 RUN_COMMAND = bin/debug/main.exe
 

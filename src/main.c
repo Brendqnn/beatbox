@@ -7,7 +7,7 @@
 
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 
-uint64_t global_frames[1024] = {0};
+uint64_t global_frames[2048] = {0};
 size_t global_frames_count = 0;
 
 void callback(void *buffer_data, unsigned int frames)
@@ -19,20 +19,22 @@ void callback(void *buffer_data, unsigned int frames)
     global_frames_count = frames;
 }
 
+// * TODO *
+// implement fft
+
 int main(void) {
     InitWindow(1200, 800, "BeatBox");
     SetTargetFPS(60);
     
     InitAudioDevice();
-    Music sound = LoadMusicStream("res/out of this world.mp3");
+    Music sound = LoadMusicStream("res/MASTER PAKKU.mp3");
     assert(sound.stream.sampleSize == 32);
     assert(sound.stream.channels == 2);
         
     PlayMusicStream(sound);
-    SetMusicVolume(sound, 0.5f);
+    SetMusicVolume(sound, 1.5f);
     AttachAudioStreamProcessor(sound.stream, callback);
-    
-    // Main loop
+
     while (!WindowShouldClose()) {
         UpdateMusicStream(sound);
 
@@ -40,7 +42,7 @@ int main(void) {
             if (IsMusicStreamPlaying(sound)) {
                 PauseMusicStream(sound);
             } else {
-                ResumeMusicStream(sound);
+                 ResumeMusicStream(sound);
             }
         }
 
@@ -54,15 +56,14 @@ int main(void) {
             int32_t sample = *(int32_t*)&global_frames[i];
             float t = (float)sample / INT32_MAX; // Scale to [0, 1] for positive values
             if (sample < 0) {
-                t = (float)sample / INT32_MIN;   // Scale to [0, 1] for negative values 
-            } 
+                t = (float)sample / INT32_MIN;   // Scale to [0, 1] for negative values
+                DrawRectangle(i * cell_width, h/2, cell_width, h / 2 * t, RED);
+            }
             float y = h/2 - h/2 * t;
             DrawRectangle(i * cell_width, y, cell_width, h / 2 * t, RED);
         }
-                
         EndDrawing();
     }
-    
     CloseWindow();
 
     return 0;
