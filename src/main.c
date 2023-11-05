@@ -12,6 +12,7 @@
 uint64_t global_frames[2048] = {0};
 size_t global_frames_count = 0;
 
+
 void fft(complex double* x, int N) {
     if (N <= 1) return;
 
@@ -39,14 +40,19 @@ void callback(void *buffer_data, unsigned int frames)
         frames = ARRAY_LEN(global_frames);
     }
 
-    // Convert the audio data to complex double values
     complex double complex_data[frames];
     for (size_t i = 0; i < frames; i++) {
-        // Assuming 32-bit float audio samples
-        float sample = ((float *)buffer_data)[i];
+        float sample = ((float *)buffer_data)[i];       
         complex_data[i] = sample;
     }
     
+    // Apply the Hann window (Hanning window) - https://en.wikipedia.org/wiki/Hann_function
+    for (size_t i = 0; i < frames; i++) {
+        float hann_window = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (frames - 1)));
+        complex_data[i] *= hann_window;
+    }
+
+    // Perform FFT
     fft(complex_data, frames);
 
     for (size_t i = 0; i < frames; i++) {
@@ -69,6 +75,14 @@ int main(void) {
     SetMusicVolume(sound, 1.5f);
     AttachAudioStreamProcessor(sound.stream, callback);
 
+    // Find the maximum amplitude value in global_frames
+    uint64_t max_amplitude = 0;
+    for (size_t i = 0; i < global_frames_count; i++) {
+        if (global_frames[i] > max_amplitude) {
+            max_amplitude = global_frames[i];
+        }
+    }
+
     while (!WindowShouldClose()) {
         UpdateMusicStream(sound);
         if (IsKeyPressed(KEY_SPACE)) {
@@ -87,9 +101,7 @@ int main(void) {
         float cell_width = (float)w/global_frames_count;
         for (size_t i = 0; i < global_frames_count; ++i) {
             complex double data = global_frames[i];
-            float magnitude = cabs(data); // Get the magnitude of the complex value
-
-            // Visualize the magnitude, not as a 32-bit integer
+            float magnitude = cabs(data);
             float x = i * cell_width;
             float height = h * magnitude;
 
@@ -101,4 +113,3 @@ int main(void) {
 
     return 0;
 }
-
