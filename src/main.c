@@ -13,7 +13,7 @@ uint64_t global_frames[2048] = {0};
 size_t global_frames_count = 0;
 
 
-void fft(complex double* x, int N) {
+static void fft(complex double* x, int N) {
     if (N <= 1) return;
 
     complex double even[N / 2];
@@ -48,15 +48,16 @@ void callback(void *buffer_data, unsigned int frames)
     
     // Apply the Hann window (Hanning window) - https://en.wikipedia.org/wiki/Hann_function
     for (size_t i = 0; i < frames; i++) {
-        float hann_window = 0.5f * (1.0f - cosf(2.0f * M_PI * i / (frames - 1)));
-        complex_data[i] *= hann_window;
+        float t = (float)i/(frames - 1);
+        float hann = 0.5 - 0.5*cosf(2*PI*t);
+        complex_data[i] *= hann;
     }
 
     // Perform FFT
     fft(complex_data, frames);
 
     for (size_t i = 0; i < frames; i++) {
-        global_frames[i] = cabs(complex_data[i]);
+        global_frames[i] = creal(complex_data[i]);
     }
     
     global_frames_count = frames;
@@ -67,21 +68,13 @@ int main(void) {
     SetTargetFPS(60);
     
     InitAudioDevice();
-    Music sound = LoadMusicStream("Max B.mp3");
+    Music sound = LoadMusicStream("MASTER PAKKU.mp3");
     assert(sound.stream.sampleSize == 32);
     assert(sound.stream.channels == 2);
         
     PlayMusicStream(sound);
     SetMusicVolume(sound, 1.5f);
     AttachAudioStreamProcessor(sound.stream, callback);
-
-    // Find the maximum amplitude value in global_frames
-    uint64_t max_amplitude = 0;
-    for (size_t i = 0; i < global_frames_count; i++) {
-        if (global_frames[i] > max_amplitude) {
-            max_amplitude = global_frames[i];
-        }
-    }
 
     while (!WindowShouldClose()) {
         UpdateMusicStream(sound);
@@ -95,17 +88,22 @@ int main(void) {
 
         int w = GetRenderWidth();
         int h = GetRenderHeight();
+
+        float x1 = 0;
+        float y1, y2;
         
         BeginDrawing();
         ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
         float cell_width = (float)w/global_frames_count;
         for (size_t i = 0; i < global_frames_count; ++i) {
             complex double data = global_frames[i];
-            float magnitude = cabs(data);
-            float x = i * cell_width;
-            float height = h * magnitude;
+            y1 = h / 2 - h / 2 * creal(data);
 
-            DrawRectangle(x, h - height, cell_width, height, RED);
+            if (i > 0) {
+                DrawLine(x1, y1, x1 + cell_width, y2, RED);
+            }
+            x1 += cell_width;
+            y2 = y1;
         }
         EndDrawing();
     }
