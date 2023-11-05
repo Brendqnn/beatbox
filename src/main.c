@@ -74,7 +74,6 @@ int main(void) {
     SetMusicVolume(sound, 1.5f);
     AttachAudioStreamProcessor(sound.stream, callback);
 
-
     while (!WindowShouldClose()) {
         UpdateMusicStream(sound);
         if (IsKeyPressed(KEY_SPACE)) {
@@ -88,7 +87,7 @@ int main(void) {
         int w = GetRenderWidth();
         int h = GetRenderHeight();
 
-        float height_scale = 12.0f;
+        float height_scale = 10.0f;
 
         BeginDrawing();
         ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
@@ -96,10 +95,11 @@ int main(void) {
         float cell_height = (float)h/global_frames_count;
         for (size_t i = 0; i < global_frames_count; ++i) {
             complex double data = global_frames[i];
+            double amp = cabs(data);
             float magnitude = cabs(data); // Get the magnitude of the complex value
-            float x = i * cell_width + cell_width/2;
-            float y = h - magnitude * height_scale;
-            DrawRectangle(x, y, cell_width, magnitude * height_scale, RED);
+            float x = i * cell_width;
+            float y = h - amp * height_scale;
+            DrawRectangle(x, y, cell_width, amp * height_scale, RED);
         }
         EndDrawing();
     }
