@@ -1055,7 +1055,7 @@ RLAPI void OpenURL(const char *url);                              // Open URL wi
 // WARNING: Callbacks setup is intended for advance users
 RLAPI void SetTraceLogCallback(TraceLogCallback callback);         // Set custom trace log
 RLAPI void SetLoadFileDataCallback(LoadFileDataCallback callback); // Set custom file binary data loader
-RLAPI void SetSaveFileDataCallback(SaveFileDataCallback callback); // Set custom file binary data saver
+RLAPI void SetSaveFileDataCallback(SaveFileDataC2allback callback); // Set custom file binary data saver
 RLAPI void SetLoadFileTextCallback(LoadFileTextCallback callback); // Set custom file text data loader
 RLAPI void SetSaveFileTextCallback(SaveFileTextCallback callback); // Set custom file text data saver
 

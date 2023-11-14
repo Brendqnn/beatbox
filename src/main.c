@@ -7,66 +7,103 @@
 #include <complex.h>
 #include <math.h>
 
+#define cfromreal(re) (re)
+#define cfromimag(im) ((im)*I)
+#define mulcc(a, b) ((a)*(b))
+#define addcc(a, b) ((a)+(b))
+#define subcc(a, b) ((a)-(b))
+
+#define N (1<<13)
 #define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 
-uint64_t global_frames[2048] = {0};
-size_t global_frames_count = 0;
- 
+typedef struct {
+    float in_raw[N];
+    float complex out_raw[N];
+    unsigned int frame_count;
+} Track_r;
+
+Track_r *track = NULL;
+
+// Hann window (Hanning window) - https://en.wikipedia.org/wiki/Hann_function
+static inline void hanning(float data_buffer[])
+{
+    for (size_t i = 0; i < N; i++) {
+        float t = (float)i/(N - 1);
+        float hann = 0.5 - 0.5 * cosf(2*PI*t);
+        data_buffer[i] *= hann;
+    }
+}
+
+// Ported from https://rosettacode.org/wiki/Fast_Fourier_transform#Python
 static void fft(float in[], size_t stride, float complex out[], size_t n)
 {
     assert(n > 0);
 
     if (n == 1) {
-        out[0] = in[0];
+        out[0] = cfromreal(in[0]);
         return;
     }
 
-    fft(in, stride * 2, out, n / 2);
-    fft(in + stride, stride * 2, out + n / 2, n / 2);
+    fft(in, stride * 2, out, n/2);
+    fft(in + stride, stride * 2, out + n/2, n/2);
 
     for (size_t k = 0; k < n / 2; ++k) {
         float t = (float)k / n;
-        float complex v = cexpf(-2.0 * I * PI * t) * out[k + n / 2];
+        float complex v = mulcc(cexpf(cfromimag(-2*PI*t)), out[k + n/2]);
         float complex e = out[k];
         out[k] = e + v;
-        out[k + n / 2] = e - v;
+        out[k + n/2] = e - v;
     }
+}
+
+static void fft_push(float *buffer, unsigned int frames)
+{
+    for (unsigned int i = 0; i < frames; i++) {
+        track->in_raw[i] = buffer[i];
+    }
+
+    fft(track->in_raw, 1, track->out_raw, N);
 }
 
 void callback(void *buffer_data, unsigned int frames)
 {
-    if (frames > ARRAY_LEN(global_frames)) {
-        frames = ARRAY_LEN(global_frames);
+    float *buffer = (float*)buffer_data;
+    fft_push(buffer, frames);
+    track->frame_count = frames;
+}
+
+void fft_render(void)
+{
+    int w = GetRenderWidth();
+    int h = GetRenderHeight();
+
+    float scale = 5.0f;
+    float cell_width = (float)w/track->frame_count;
+
+    for (size_t i = 0; i < track->frame_count; i++) {
+        complex double data = track->out_raw[i];
+        double mag = cabs(data) * scale;
+        float hue = (float)i/(float)track->frame_count;
+        
+        Color color = ColorFromHSV(hue * 360, 0.75, 1.0);
+        DrawRectangle(i*cell_width + cell_width/2, h/2 - mag, cell_width, mag, color);
     }
+}
 
-    float audio_data[frames];
-    for (size_t i = 0; i < frames; i++) {
-        audio_data[i] = ((float *)buffer_data)[i];
-    }
-
-    // Apply the Hann window (Hanning window) - https://en.wikipedia.org/wiki/Hann_function
-    for (size_t i = 0; i < frames; i++) {
-        float t = (float)i / (frames - 1);
-        float hann = 0.5 - 0.5 * cosf(2 * PI * t);
-        audio_data[i] *= hann;
-    }
-
-    float complex complex_data[frames];
-    fft(audio_data, 1, complex_data, frames);
-
-    for (size_t i = 0; i < frames; i++) {
-        global_frames[i] = cabs(complex_data[i]);
-    }
-
-    global_frames_count = frames;
+static void fft_clean(void)
+{
+    memset(track->in_raw, 0, sizeof(track->in_raw));
+    memset(track->out_raw, 0, sizeof(track->out_raw));
 }
 
 int main(void) {
+    track = malloc(sizeof(Track_r));
+   
     InitWindow(1200, 800, "beatbox");
-    SetTargetFPS(60);
+    SetTargetFPS(30);
 
     InitAudioDevice();
-    Music sound = LoadMusicStream("Beatiful Love.mp3");
+    Music sound = LoadMusicStream("res/""");
     assert(sound.stream.sampleSize == 32);
     assert(sound.stream.channels == 2);
 
@@ -84,27 +121,14 @@ int main(void) {
             }
         }
 
-        int w = GetRenderWidth();
-        int h = GetRenderHeight();
-
-        float height_scale = 10.0f;
-
         BeginDrawing();
+        fft_render();
         ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
-        float cell_width = (float)w/global_frames_count;
-        float cell_height = (float)h/global_frames_count;
-        for (size_t i = 0; i < global_frames_count; ++i) {
-            complex double data = global_frames[i];
-            double amp = cabs(data);
-            float magnitude = cabs(data); // Get the magnitude of the complex value
-            float x = i * cell_width;
-            float y = h - amp * height_scale;
-            DrawRectangle(x, y, cell_width, amp * height_scale, RED);
-        }
         EndDrawing();
     }
+
+    fft_clean();
     CloseWindow();
 
     return 0;
 }
-
