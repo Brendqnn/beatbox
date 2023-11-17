@@ -6,13 +6,12 @@ Beatbox Visualization is a simple audio visualization program that visualizes au
 
 - Real-time audio visualization.
 - Hann window applied to the audio data for better accuracy.
+- Drag and drop
 
 ## Getting Started
 
-1. Clone this repository to your local machine.
-2. Make sure you have the [Raylib](https://www.raylib.com/) library installed.
-3. Compile the program using your preferred C compiler (e.g., GCC).
-4. Run the compiled executable.
+1. ./build.sh
+2. ./main
 
 ## Dependencies
 
