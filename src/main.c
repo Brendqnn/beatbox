@@ -25,13 +25,19 @@ typedef struct {
 Track_r *track = NULL;
 
 // Hann window (Hanning window) - https://en.wikipedia.org/wiki/Hann_function
-static inline void hanning(float data_buffer[])
+static inline void hann_window(float *in, size_t n)
 {
-    for (size_t i = 0; i < N; i++) {
-        float t = (float)i/(N - 1);
-        float hann = 0.5 - 0.5 * cosf(2*PI*t);
-        data_buffer[i] *= hann;
+    for (size_t i = 0; i < n; ++i) {
+        float multiplier = 0.5f * (1.0f - cosf(2.0f * PI * i / (n - 1)));
+        in[i] *= multiplier;
     }
+}
+
+static inline float amplitude(float complex z)
+{
+    float a = crealf(z);
+    float b = cimagf(z);
+    return logf(a*a + b*b);
 }
 
 // Ported from https://rosettacode.org/wiki/Fast_Fourier_transform#Python
@@ -51,25 +57,24 @@ static void fft(float in[], size_t stride, float complex out[], size_t n)
         float t = (float)k / n;
         float complex v = mulcc(cexpf(cfromimag(-2*PI*t)), out[k + n/2]);
         float complex e = out[k];
-        out[k] = e + v;
-        out[k + n/2] = e - v;
+        out[k]       = addcc(e, v);
+        out[k + n/2] = subcc(e, v);
     }
 }
 
 static void fft_push(float *buffer, unsigned int frames)
 {
-    for (unsigned int i = 0; i < frames; i++) {
-        track->in_raw[i] = buffer[i];
-    }
+    track->frame_count = frames;
+    memcpy(track->in_raw, buffer, track->frame_count * sizeof(float));
 
+    hann_window(track->in_raw, track->frame_count);
     fft(track->in_raw, 1, track->out_raw, N);
 }
 
-void callback(void *buffer_data, unsigned int frames)
-{
+static void callback(void *buffer_data, unsigned int frames)
+{   
     float *buffer = (float*)buffer_data;
     fft_push(buffer, frames);
-    track->frame_count = frames;
 }
 
 void fft_render(void)
@@ -77,16 +82,25 @@ void fft_render(void)
     int w = GetRenderWidth();
     int h = GetRenderHeight();
 
-    float scale = 5.0f;
-    float cell_width = (float)w/track->frame_count;
+    float scale = 2.0f;
+    float cell_width = (float)w / track->frame_count;
 
-    for (size_t i = 0; i < track->frame_count; i++) {
-        complex double data = track->out_raw[i];
-        double mag = cabs(data) * scale;
-        float hue = (float)i/(float)track->frame_count;
-        
+    for (size_t i = 0; i < track->frame_count - 1; i++) {
+        complex float data1 = track->out_raw[i];
+        complex float data2 = track->out_raw[i + 1];
+
+        float mag1 = cabs(data1);
+        float mag2 = cabs(data2);
+        float amp1 = amplitude(data1);
+        float amp2 = amplitude(data2);
+
+        float hue = (float)i / (float)track->frame_count;
         Color color = ColorFromHSV(hue * 360, 0.75, 1.0);
-        DrawRectangle(i*cell_width + cell_width/2, h/2 - mag, cell_width, mag, color);
+
+        Vector2 start = {i * cell_width, h / 2 - mag1 * amp1/scale};
+        Vector2 end = {(i + 1) * cell_width, h / 2 - mag2 * amp2/scale};
+
+        DrawLineEx(start, end, cell_width, color);
     }
 }
 
@@ -98,17 +112,18 @@ static void fft_clean(void)
 
 int main(void) {
     track = malloc(sizeof(Track_r));
+    SetConfigFlags(FLAG_MSAA_4X_HINT); 
    
     InitWindow(1200, 800, "beatbox");
-    SetTargetFPS(30);
+    SetTargetFPS(60);
 
     InitAudioDevice();
-    Music sound = LoadMusicStream("res/""");
+    Music sound = LoadMusicStream("res/Beatiful Love.mp3");
     assert(sound.stream.sampleSize == 32);
     assert(sound.stream.channels == 2);
 
     PlayMusicStream(sound);
-    SetMusicVolume(sound, 1.5f);
+    SetMusicVolume(sound, 1.0f);
     AttachAudioStreamProcessor(sound.stream, callback);
 
     while (!WindowShouldClose()) {
@@ -122,7 +137,9 @@ int main(void) {
         }
 
         BeginDrawing();
+        
         fft_render();
+        
         ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
         EndDrawing();
     }
