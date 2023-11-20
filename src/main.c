@@ -126,8 +126,8 @@ void fft_render()
         float hue = (float)i / (float)numElements;
         Color color = ColorFromHSV(hue * 360, 0.75, 1.0);
 
-        Vector2 start = { i * cell_width, h/2 - value1 * scale};
-        Vector2 end = { (i + 1) * cell_width, h/2 - value2 * scale};
+        Vector2 start = {i * cell_width, h/2 - value1 * scale};
+        Vector2 end = {(i + 1) * cell_width, h/2 - value2 * scale};
 
         DrawLineEx(start, end, cell_width, color);
     }
@@ -137,7 +137,9 @@ static void fft_clean(void)
 {
     memset(track->in_raw, 0, sizeof(track->in_raw));
     memset(track->out_raw, 0, sizeof(track->out_raw));
-
+    memset(track->in_win, 0, sizeof(track->in_win));
+    memset(track->out_log, 0, sizeof(track->out_log));
+    
     UnloadMusicStream(sound);
     free(track);
 }
