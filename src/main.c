@@ -106,8 +106,7 @@ static void callback(void *buffer_data, unsigned int frames)
     }
     float dt = 1.0f/ (float)SAMPLE_RATE;
 
-    // Analyze the audio frames using FFT
-    size_t numValidElements = fft_analyze(dt);
+    size_t elements = fft_analyze(dt);
 }
 
 void fft_render()
@@ -115,7 +114,7 @@ void fft_render()
     int w = GetRenderWidth();
     int h = GetRenderHeight();
 
-    float scale = 12.0f;
+    float scale = 10.0f;
     size_t numElements = N/2;
     float cell_width = (float)w / numElements * 2;
 
