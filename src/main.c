@@ -14,10 +14,9 @@
 #define subcc(a, b) ((a)-(b))
 
 #define N (1<<13)
-#define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 #define MAX_FILEPATH_RECORDED   4096
 #define MAX_FILEPATH_SIZE       2048
-#define SAMPLE_RATE 4800
+#define SAMPLE_RATE             4800
 
 typedef struct {
     float in_raw[N];
@@ -106,15 +105,12 @@ static void callback(void *buffer_data, unsigned int frames)
     }
 }
 
-void fft_render()
+void fft_render(int window_width, int window_height)
 {
-    int w = GetRenderWidth();
-    int h = GetRenderHeight();
-
     float dt = 1.0f/ (float)SAMPLE_RATE;
 
     size_t t = fft_analyze(dt);
-    float cell_width = (float)w / (float)(t) + 1;
+    float cell_width = (float)window_width / (float)(t) + 1;
     
     for (size_t i = 0; i < N/2; i++) {
         float value1 = track->out_log[i];
@@ -123,8 +119,8 @@ void fft_render()
         float hue = (float)i / (float)t;
         Color color = ColorFromHSV(hue * 360, 0.75, 1.0);
 
-        Vector2 start = {(float)i * cell_width, h - value1 * t/2};
-        Vector2 end = {(float)(i + 1) * cell_width, h - value2 * t/2};
+        Vector2 start = {(float)i * cell_width, window_height - value1 * t/2};
+        Vector2 end = {(float)(i + 1) * cell_width, window_height - value2 * t/2};
 
         DrawLineEx(start, end, 2.0f, color);
     }
@@ -141,33 +137,58 @@ static void fft_clean(void)
     free(track);
 }
 
-static void load_sticker()
-{
-    
-}
-
 int main(void) {
-    track = malloc(sizeof(Track_r));
-    
+    track = malloc(sizeof(Track_r));   
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     
     InitWindow(1200, 800, "beatbox");
     InitAudioDevice();
     SetTargetFPS(60);
 
+    int w = GetRenderWidth();
+    int h = GetRenderHeight();
+    
+    bool file_dropped = false;
     int filePathCounter = 0;
     char *filePaths[MAX_FILEPATH_RECORDED] = {0};
     const char *filename;
-
+    const char *text = "Drag and Drop Music!!!!";
+    
     for (int i = 0; i < MAX_FILEPATH_RECORDED; i++) {
         filePaths[i] = (char *)calloc(MAX_FILEPATH_SIZE, 1);
     }
+    
+    Image image = LoadImage("res/k.png");
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+
+    float scale = 0.3f; 
+    Vector2 position = {(float)(w - texture.width * scale) / 2, (float)(h - texture.height * scale) / 2 + 100.0f};  // Centered then shift down
+    //Vector2 position = {(float)w - texture.width * scale, 0}; // Top-right corner
+    
+    float text_width = MeasureText(text, 30);
+    int x = (w - (int)text_width) / 2;
+    int y = h / 2 - 10;
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-        ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
-        UpdateMusicStream(sound);
+        
+        //ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
 
+        ClearBackground(BLACK);
+
+        if (!file_dropped) {
+            DrawText(text, x, y, 30, WHITE);
+        }
+        
+        DrawTexturePro(texture, 
+                       (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
+                       (Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
+                       (Vector2){0, 0},
+                       0.0f,
+                       WHITE); 
+
+        UpdateMusicStream(sound);
         if (IsKeyPressed(KEY_SPACE)) {
             if (IsMusicStreamPlaying(sound)) {
                 PauseMusicStream(sound);
@@ -177,6 +198,12 @@ int main(void) {
         }
         
         if (IsFileDropped()) {
+            file_dropped = true;
+            
+            if (file_dropped) {
+                UnloadTexture(texture);
+            }
+            
             FilePathList droppedFiles = LoadDroppedFiles();
 
             for (int i = 0, offset = filePathCounter; i < (int)droppedFiles.count; i++) {
@@ -191,19 +218,19 @@ int main(void) {
                 assert(sound.stream.channels == 2);
 
                 PlayMusicStream(sound);
-                SetMusicVolume(sound, 1.0f);
+                SetMusicVolume(sound, 2.0f);
                 AttachAudioStreamProcessor(sound.stream, callback);
+                
             }
             UnloadDroppedFiles(droppedFiles);
         }
 
-        fft_render();
-                        
-        ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
-        EndDrawing();
+        fft_render(w, h);
 
+        // TODO: Get the duration of the song and free resources once the audio is finished playing
+
+        EndDrawing();
     }
-    fft_clean();
     CloseWindow();
     return 0;
 }
