@@ -104,9 +104,6 @@ static void callback(void *buffer_data, unsigned int frames)
     for (size_t i = 0; i < frames; ++i) {
         fft_push(fs[i][0]);
     }
-    float dt = 1.0f/ (float)SAMPLE_RATE;
-
-    size_t elements = fft_analyze(dt);
 }
 
 void fft_render()
@@ -114,21 +111,22 @@ void fft_render()
     int w = GetRenderWidth();
     int h = GetRenderHeight();
 
-    float scale = 10.0f;
-    size_t numElements = N/2;
-    float cell_width = (float)w / numElements * 2;
+    float dt = 1.0f/ (float)SAMPLE_RATE;
 
-    for (size_t i = 0; i < numElements; i++) {
+    size_t t = fft_analyze(dt);
+    float cell_width = (float)w / (float)(t) + 1;
+    
+    for (size_t i = 0; i < N/2; i++) {
         float value1 = track->out_log[i];
         float value2 = track->out_log[i + 1];
 
-        float hue = (float)i / (float)numElements;
+        float hue = (float)i / (float)t;
         Color color = ColorFromHSV(hue * 360, 0.75, 1.0);
 
-        Vector2 start = {i * cell_width, h/2 - value1 * scale};
-        Vector2 end = {(i + 1) * cell_width, h/2 - value2 * scale};
+        Vector2 start = {(float)i * cell_width, h - value1 * t/2};
+        Vector2 end = {(float)(i + 1) * cell_width, h - value2 * t/2};
 
-        DrawLineEx(start, end, cell_width, color);
+        DrawLineEx(start, end, 2.0f, color);
     }
 }
 
@@ -141,6 +139,11 @@ static void fft_clean(void)
     
     UnloadMusicStream(sound);
     free(track);
+}
+
+static void load_sticker()
+{
+    
 }
 
 int main(void) {
@@ -188,7 +191,7 @@ int main(void) {
                 assert(sound.stream.channels == 2);
 
                 PlayMusicStream(sound);
-                SetMusicVolume(sound, 2.0f);
+                SetMusicVolume(sound, 1.0f);
                 AttachAudioStreamProcessor(sound.stream, callback);
             }
             UnloadDroppedFiles(droppedFiles);
