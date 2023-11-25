@@ -14,9 +14,9 @@
 #define subcc(a, b) ((a)-(b))
 
 #define N (1<<13)
+#define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 #define MAX_FILEPATH_RECORDED   4096
 #define MAX_FILEPATH_SIZE       2048
-#define SAMPLE_RATE             4800
 
 typedef struct {
     float in_raw[N];
@@ -107,10 +107,10 @@ static void callback(void *buffer_data, unsigned int frames)
 
 void fft_render(int window_width, int window_height)
 {
-    float dt = 1.0f/ (float)SAMPLE_RATE;
+    float dt = sound.stream.sampleSize/(float)sound.stream.sampleRate;
 
     size_t t = fft_analyze(dt);
-    float cell_width = (float)window_width / (float)(t) + 1;
+    float cell_width = (float)window_width / (float)(t) + 2; // Scale to the end of the window width
     
     for (size_t i = 0; i < N/2; i++) {
         float value1 = track->out_log[i];
@@ -126,15 +126,26 @@ void fft_render(int window_width, int window_height)
     }
 }
 
-static void fft_clean(void)
+static void fft_clean(const char *file)
 {
-    memset(track->in_raw, 0, sizeof(track->in_raw));
-    memset(track->out_raw, 0, sizeof(track->out_raw));
-    memset(track->in_win, 0, sizeof(track->in_win));
-    memset(track->out_log, 0, sizeof(track->out_log));
-    
-    UnloadMusicStream(sound);
-    free(track);
+    if (track != NULL) {
+        memset(track->in_raw, 0, sizeof(track->in_raw));
+        memset(track->out_raw, 0, sizeof(track->out_raw));
+        memset(track->in_win, 0, sizeof(track->in_win));
+        memset(track->out_log, 0, sizeof(track->out_log));
+    }
+}
+
+void play_audio(const char *file)
+{
+    sound = LoadMusicStream(file);
+    sound.looping = false;
+    assert(sound.stream.sampleSize == 32);
+    assert(sound.stream.channels == 2);
+
+    PlayMusicStream(sound);
+    SetMusicVolume(sound, 2.0f);
+    AttachAudioStreamProcessor(sound.stream, callback);
 }
 
 int main(void) {
@@ -149,6 +160,7 @@ int main(void) {
     int h = GetRenderHeight();
     
     bool file_dropped = false;
+    bool audio_finished = false;
     int filePathCounter = 0;
     char *filePaths[MAX_FILEPATH_RECORDED] = {0};
     const char *filename;
@@ -172,23 +184,9 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-        
         //ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
-
         ClearBackground(BLACK);
 
-        if (!file_dropped) {
-            DrawText(text, x, y, 30, WHITE);
-        }
-        
-        DrawTexturePro(texture, 
-                       (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
-                       (Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
-                       (Vector2){0, 0},
-                       0.0f,
-                       WHITE); 
-
-        UpdateMusicStream(sound);
         if (IsKeyPressed(KEY_SPACE)) {
             if (IsMusicStreamPlaying(sound)) {
                 PauseMusicStream(sound);
@@ -196,13 +194,20 @@ int main(void) {
                 ResumeMusicStream(sound);
             }
         }
+      
+        if (!file_dropped) {
+            DrawText(text, x, y, 30, WHITE);
+
+            DrawTexturePro(texture, 
+                           (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
+                           (Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
+                           (Vector2){0, 0},
+                           0.0f,
+                           WHITE); 
+        }
         
         if (IsFileDropped()) {
             file_dropped = true;
-            
-            if (file_dropped) {
-                UnloadTexture(texture);
-            }
             
             FilePathList droppedFiles = LoadDroppedFiles();
 
@@ -212,25 +217,31 @@ int main(void) {
                     filePathCounter++;
                 }
                 filename = filePaths[i];
-
-                sound = LoadMusicStream(filename);
-                assert(sound.stream.sampleSize == 32);
-                assert(sound.stream.channels == 2);
-
-                PlayMusicStream(sound);
-                SetMusicVolume(sound, 2.0f);
-                AttachAudioStreamProcessor(sound.stream, callback);
-                
+                if (audio_finished) {
+                    filename = filePaths[i + 1];
+                    audio_finished = false;
+                }
             }
             UnloadDroppedFiles(droppedFiles);
+            play_audio(filename);
+        }
+        
+        if (IsAudioStreamPlaying(sound.stream) && file_dropped == true) {
+            UpdateMusicStream(sound);
+            fft_render(w, h);
         }
 
-        fft_render(w, h);
-
-        // TODO: Get the duration of the song and free resources once the audio is finished playing
+        if (!IsAudioStreamPlaying(sound.stream) && file_dropped == true) {
+            audio_finished = true;
+            int array_len = ARRAY_LEN(filePaths);
+            //for (int i = 0; i < array_len; ++i) {
+                
+            //}
+        }
 
         EndDrawing();
     }
+    
     CloseWindow();
     return 0;
 }
