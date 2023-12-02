@@ -7,6 +7,8 @@
 #include <complex.h>
 #include <math.h>
 
+#include "array.h"
+
 #define cfromreal(re) (re)
 #define cfromimag(im) ((im)*I)
 #define mulcc(a, b) ((a)*(b))
@@ -14,7 +16,6 @@
 #define subcc(a, b) ((a)-(b))
 
 #define N (1<<13)
-#define ARRAY_LEN(xs) sizeof(xs)/sizeof(xs[0])
 #define MAX_FILEPATH_RECORDED   4096
 #define MAX_FILEPATH_SIZE       2048
 
@@ -128,12 +129,10 @@ void fft_render(int window_width, int window_height)
 
 static void fft_clean(const char *file)
 {
-    if (track != NULL) {
-        memset(track->in_raw, 0, sizeof(track->in_raw));
-        memset(track->out_raw, 0, sizeof(track->out_raw));
-        memset(track->in_win, 0, sizeof(track->in_win));
-        memset(track->out_log, 0, sizeof(track->out_log));
-    }
+    memset(track->in_raw, 0, sizeof(track->in_raw));
+    memset(track->out_raw, 0, sizeof(track->out_raw));
+    memset(track->in_win, 0, sizeof(track->in_win));
+    memset(track->out_log, 0, sizeof(track->out_log));  
 }
 
 void play_audio(const char *file)
@@ -144,11 +143,13 @@ void play_audio(const char *file)
     assert(sound.stream.channels == 2);
 
     PlayMusicStream(sound);
-    SetMusicVolume(sound, 2.0f);
+    SetMusicVolume(sound, 1.0f);
     AttachAudioStreamProcessor(sound.stream, callback);
 }
 
 int main(void) {
+    Array_s *array = init_array();
+    
     track = malloc(sizeof(Track_r));   
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     
@@ -158,17 +159,11 @@ int main(void) {
 
     int w = GetRenderWidth();
     int h = GetRenderHeight();
-    
+
     bool file_dropped = false;
-    bool audio_finished = false;
-    int filePathCounter = 0;
-    char *filePaths[MAX_FILEPATH_RECORDED] = {0};
+
     const char *filename;
     const char *text = "Drag and Drop Music!!!!";
-    
-    for (int i = 0; i < MAX_FILEPATH_RECORDED; i++) {
-        filePaths[i] = (char *)calloc(MAX_FILEPATH_SIZE, 1);
-    }
     
     Image image = LoadImage("res/k.png");
     Texture2D texture = LoadTextureFromImage(image);
@@ -208,37 +203,36 @@ int main(void) {
         
         if (IsFileDropped()) {
             file_dropped = true;
-            
             FilePathList droppedFiles = LoadDroppedFiles();
-
-            for (int i = 0, offset = filePathCounter; i < (int)droppedFiles.count; i++) {
-                if (filePathCounter < (MAX_FILEPATH_RECORDED - 1)) {
-                    TextCopy(filePaths[offset + i], droppedFiles.paths[i]);
-                    filePathCounter++;
-                }
-                filename = filePaths[i];
-                if (audio_finished) {
-                    filename = filePaths[i + 1];
-                    audio_finished = false;
-                }
+            for (size_t i = 0; i < droppedFiles.count; i++) {
+                push_s(array, droppedFiles.paths[i]);
+                file_dropped = false;
             }
             UnloadDroppedFiles(droppedFiles);
-            play_audio(filename);
+
+            for (size_t i = 0; i < array->size; i++) {
+                filename = array->array[i];
+                play_audio(filename);
+            }
         }
         
-        if (IsAudioStreamPlaying(sound.stream) && file_dropped == true) {
-            UpdateMusicStream(sound);
-            fft_render(w, h);
-        }
+        //if (IsAudioStreamPlaying(sound.stream)) {
+        UpdateMusicStream(sound);
+        fft_render(w, h);
+        //}
 
-        if (!IsAudioStreamPlaying(sound.stream) && file_dropped == true) {
-            audio_finished = true;
-            int array_len = ARRAY_LEN(filePaths);
-            //for (int i = 0; i < array_len; ++i) {
-                
-            //}
+        if (!IsAudioStreamPlaying(sound.stream)) {
+            for (size_t i = 0; i < array->size; i++) {
+                const char *current = array->array[i];
+                if (current == filename) {
+                    if (array->array[i + 1] != NULL) {
+                        filename = array->array[i + 1];
+                        play_audio(filename);
+                    }
+                }
+            }
         }
-
+        
         EndDrawing();
     }
     
