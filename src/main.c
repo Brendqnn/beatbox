@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <raylib.h>
+#include "raylib.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -215,12 +215,10 @@ int main(void) {
                 play_audio(filename);
             }
         }
-        
-        //if (IsAudioStreamPlaying(sound.stream)) {
+
         UpdateMusicStream(sound);
         fft_render(w, h);
-        //}
-
+        
         if (!IsAudioStreamPlaying(sound.stream)) {
             for (size_t i = 0; i < array->size; i++) {
                 const char *current = array->array[i];

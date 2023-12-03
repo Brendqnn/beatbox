@@ -55,6 +55,8 @@ void push_s(Array_s *arr, const char *val) {
     arr->size++;
 }
 
+// TODO** write a remove method here
+
 void free_s(Array_s *arr) {
     for (size_t i = 0; i < arr->size; i++) {
         free((void*)arr->array[i]);  // Free each duplicated string
