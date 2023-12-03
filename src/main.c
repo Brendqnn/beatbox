@@ -151,7 +151,7 @@ int main(void) {
     Array_s *array = init_array();
     
     track = malloc(sizeof(Track_r));   
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    //SetConfigFlags(FLAG_MSAA_4X_HINT);
     
     InitWindow(1200, 800, "beatbox");
     InitAudioDevice();
@@ -193,21 +193,22 @@ int main(void) {
         if (!file_dropped) {
             DrawText(text, x, y, 30, WHITE);
 
-            DrawTexturePro(texture, 
-                           (Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
-                           (Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
-                           (Vector2){0, 0},
-                           0.0f,
-                           WHITE); 
+            //DrawTexturePro(texture, 
+            //(Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
+            //(Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
+            //(Vector2){0, 0},
+            //0.0f,
+            //WHITE); 
         }
         
         if (IsFileDropped()) {
             file_dropped = true;
             FilePathList droppedFiles = LoadDroppedFiles();
+            
             for (size_t i = 0; i < droppedFiles.count; i++) {
                 push_s(array, droppedFiles.paths[i]);
-                file_dropped = false;
             }
+            
             UnloadDroppedFiles(droppedFiles);
 
             for (size_t i = 0; i < array->size; i++) {
@@ -215,7 +216,7 @@ int main(void) {
                 play_audio(filename);
             }
         }
-
+        
         UpdateMusicStream(sound);
         fft_render(w, h);
         
