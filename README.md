@@ -4,13 +4,11 @@ Beatbox Visualization is a simple audio visualization program that visualizes au
 
 ## Getting Started
 
-- Windows
-
+# Windows
 1. run 'make'
 2. ./main.exe
 
-- Linux
-
+# Linux
 1. ./build.sh
 2. ./main
 
