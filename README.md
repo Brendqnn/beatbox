@@ -1,14 +1,15 @@
 # Beatbox Visualization
 
-Beatbox Visualization is a simple audio visualization program that visualizes audio data in real-time. It uses the Fast Fourier Transform (FFT) algorithm to convert audio data into a graphical representation, allowing you to see the amplitude of audio frequencies.
-
-## Features
-
-- Real-time audio visualization.
-- Hann window applied to the audio data for better accuracy.
-- Drag and drop
+Beatbox Visualization is a simple audio visualization program that visualizes audio data in real-time.
 
 ## Getting Started
+
+- Windows
+
+1. run 'make'
+2. ./main.exe
+
+- Linux
 
 1. ./build.sh
 2. ./main
