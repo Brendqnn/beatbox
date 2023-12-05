@@ -1,13 +1,18 @@
 #include <stdio.h>
-#include "raylib.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
 #include <complex.h>
 #include <math.h>
+#include <pthread.h>
+#include <unistd.h>
 
-#include "array.h"
+#ifdef _WIN32
+    #include "raylib.h"
+#else
+    #include <raylib.h>
+#endif
 
 #define cfromreal(re) (re)
 #define cfromimag(im) ((im)*I)
@@ -16,8 +21,6 @@
 #define subcc(a, b) ((a)-(b))
 
 #define N (1<<13)
-#define MAX_FILEPATH_RECORDED   4096
-#define MAX_FILEPATH_SIZE       2048
 
 typedef struct {
     float in_raw[N];
@@ -27,8 +30,15 @@ typedef struct {
     unsigned int frame_count;
 } Track_r;
 
+typedef struct {
+    Music sound;
+    const char* files[2048];
+    size_t length;
+} Track;
+
 static Track_r *track = NULL;
-static Music sound = {0};
+
+bool file_dropped = false;
 
 static inline float amplitude(float complex z)
 {
@@ -106,10 +116,10 @@ static void callback(void *buffer_data, unsigned int frames)
     }
 }
 
-void fft_render(int window_width, int window_height)
+void fft_render(Music audio, int window_width, int window_height)
 {
-    float dt = sound.stream.sampleSize/(float)sound.stream.sampleRate;
-
+    float dt = audio.stream.sampleSize/(float)audio.stream.sampleRate;
+  
     size_t t = fft_analyze(dt);
     float cell_width = (float)window_width / (float)(t) + 2; // Scale to the end of the window width
     
@@ -127,7 +137,7 @@ void fft_render(int window_width, int window_height)
     }
 }
 
-static void fft_clean(const char *file)
+static void fft_clean()
 {
     memset(track->in_raw, 0, sizeof(track->in_raw));
     memset(track->out_raw, 0, sizeof(track->out_raw));
@@ -137,6 +147,8 @@ static void fft_clean(const char *file)
 
 void play_audio(const char *file)
 {
+    InitAudioDevice();
+    
     sound = LoadMusicStream(file);
     sound.looping = false;
     assert(sound.stream.sampleSize == 32);
@@ -147,31 +159,18 @@ void play_audio(const char *file)
     AttachAudioStreamProcessor(sound.stream, callback);
 }
 
-int main(void) {
-    Array_s *array = init_array();
-    
+int main(void) {    
     track = malloc(sizeof(Track_r));   
-    //SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     
     InitWindow(1200, 800, "beatbox");
-    InitAudioDevice();
     SetTargetFPS(60);
 
     int w = GetRenderWidth();
     int h = GetRenderHeight();
 
-    bool file_dropped = false;
-
     const char *filename;
     const char *text = "Drag and Drop Music!!!!";
-    
-    Image image = LoadImage("res/k.png");
-    Texture2D texture = LoadTextureFromImage(image);
-    UnloadImage(image);
-
-    float scale = 0.3f; 
-    Vector2 position = {(float)(w - texture.width * scale) / 2, (float)(h - texture.height * scale) / 2 + 100.0f};  // Centered then shift down
-    //Vector2 position = {(float)w - texture.width * scale, 0}; // Top-right corner
     
     float text_width = MeasureText(text, 30);
     int x = (w - (int)text_width) / 2;
@@ -179,62 +178,34 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-        //ClearBackground(CLITERAL(Color) {0x18, 0x18, 0x18, 0xFF});
         ClearBackground(BLACK);
 
-        if (IsKeyPressed(KEY_SPACE)) {
-            if (IsMusicStreamPlaying(sound)) {
-                PauseMusicStream(sound);
-            } else {
-                ResumeMusicStream(sound);
-            }
-        }
-      
         if (!file_dropped) {
             DrawText(text, x, y, 30, WHITE);
-
-            //DrawTexturePro(texture, 
-            //(Rectangle){0.0f, 0.0f, (float)texture.width, (float)texture.height},
-            //(Rectangle){position.x, position.y, (float)texture.width * scale, (float)texture.height * scale},
-            //(Vector2){0, 0},
-            //0.0f,
-            //WHITE); 
         }
-        
+
         if (IsFileDropped()) {
             file_dropped = true;
             FilePathList droppedFiles = LoadDroppedFiles();
-            
+
             for (size_t i = 0; i < droppedFiles.count; i++) {
                 push_s(array, droppedFiles.paths[i]);
             }
-            
+
             UnloadDroppedFiles(droppedFiles);
 
             for (size_t i = 0; i < array->size; i++) {
                 filename = array->array[i];
+                //pthread_create(&audio_thread, NULL, play_audio_thread, (void *)filename);
                 play_audio(filename);
             }
         }
-        
         UpdateMusicStream(sound);
-        fft_render(w, h);
-        
-        if (!IsAudioStreamPlaying(sound.stream)) {
-            for (size_t i = 0; i < array->size; i++) {
-                const char *current = array->array[i];
-                if (current == filename) {
-                    if (array->array[i + 1] != NULL) {
-                        filename = array->array[i + 1];
-                        play_audio(filename);
-                    }
-                }
-            }
-        }
         
         EndDrawing();
     }
-    
+    fft_clean();
     CloseWindow();
+    
     return 0;
 }
