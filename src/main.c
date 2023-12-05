@@ -22,21 +22,26 @@
 
 #define N (1<<13)
 
+#define MAX_FILE_CAPACITY 4096
+
 typedef struct {
     float in_raw[N];
     float in_win[N];
     float complex out_raw[N];
     float out_log[N];
     unsigned int frame_count;
-} Track_r;
+} Track;
 
 typedef struct {
     Music sound;
-    const char* files[2048];
+    const char* files[MAX_FILE_CAPACITY];
+    float volume;
     size_t length;
-} Track;
+    size_t count;
+} Music_t;
 
-static Track_r *track = NULL;
+static Track *track = NULL;
+static Music_t *music = NULL;
 
 bool file_dropped = false;
 
@@ -116,9 +121,9 @@ static void callback(void *buffer_data, unsigned int frames)
     }
 }
 
-void fft_render(Music audio, int window_width, int window_height)
+void fft_render(Music_t *music, int window_width, int window_height)
 {
-    float dt = audio.stream.sampleSize/(float)audio.stream.sampleRate;
+    float dt = music->sound.stream.sampleSize/(float)music->sound.stream.sampleRate;
   
     size_t t = fft_analyze(dt);
     float cell_width = (float)window_width / (float)(t) + 2; // Scale to the end of the window width
@@ -145,22 +150,24 @@ static void fft_clean()
     memset(track->out_log, 0, sizeof(track->out_log));  
 }
 
-void play_audio(const char *file)
+void play_audio(Music_t *music, const char *file)
 {
     InitAudioDevice();
     
-    sound = LoadMusicStream(file);
-    sound.looping = false;
-    assert(sound.stream.sampleSize == 32);
-    assert(sound.stream.channels == 2);
+    music->sound = LoadMusicStream(file);
+    music->sound.looping = false;
+    assert(music->sound.stream.sampleSize == 32);
+    assert(music->sound.stream.channels == 2);
 
-    PlayMusicStream(sound);
-    SetMusicVolume(sound, 1.0f);
-    AttachAudioStreamProcessor(sound.stream, callback);
+    PlayMusicStream(music->sound);
+    SetMusicVolume(music->sound, 1.0f);
+    AttachAudioStreamProcessor(music->sound.stream, callback);
 }
 
 int main(void) {    
-    track = malloc(sizeof(Track_r));   
+    track = malloc(sizeof(Track));
+    music = malloc(sizeof(Music_t));
+    
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     
     InitWindow(1200, 800, "beatbox");
@@ -187,20 +194,17 @@ int main(void) {
         if (IsFileDropped()) {
             file_dropped = true;
             FilePathList droppedFiles = LoadDroppedFiles();
-
-            for (size_t i = 0; i < droppedFiles.count; i++) {
-                push_s(array, droppedFiles.paths[i]);
+            for (size_t i = 0; i < droppedFiles.count; i++) {                
+                music->files[i] = droppedFiles.paths[i];
+                filename = music->files[i];
+                music->count += droppedFiles.count;
+                play_audio(music, filename);
             }
-
             UnloadDroppedFiles(droppedFiles);
-
-            for (size_t i = 0; i < array->size; i++) {
-                filename = array->array[i];
-                //pthread_create(&audio_thread, NULL, play_audio_thread, (void *)filename);
-                play_audio(filename);
-            }
         }
-        UpdateMusicStream(sound);
+
+        UpdateMusicStream(music->sound);
+        fft_render(music, w, h);
         
         EndDrawing();
     }

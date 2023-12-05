@@ -2,7 +2,7 @@
 
 #set -xe
 
-CFLAGS="-Wall -Wextra -Iraylib/include"
+CFLAGS="-Wall -Wextra -Ilib/raylib-5.0_linux_amd64/include"
 LDFLAGS="-lraylib -lGL -lm -lpthread -ldl"
 
 SOURCE_FILES="src/main.c"
