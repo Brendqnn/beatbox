@@ -175,8 +175,7 @@ int main(void) {
 
     int w = GetRenderWidth();
     int h = GetRenderHeight();
-
-    const char *filename;
+    
     const char *text = "Drag and Drop Music!!!!";
     
     float text_width = MeasureText(text, 30);
@@ -196,13 +195,13 @@ int main(void) {
             FilePathList droppedFiles = LoadDroppedFiles();
             for (size_t i = 0; i < droppedFiles.count; i++) {                
                 music->files[i] = droppedFiles.paths[i];
-                filename = music->files[i];
                 music->count += droppedFiles.count;
+                const char* filename = music->files[i];
                 play_audio(music, filename);
             }
             UnloadDroppedFiles(droppedFiles);
         }
-
+        
         UpdateMusicStream(music->sound);
         fft_render(music, w, h);
         
